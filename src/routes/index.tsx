@@ -1,3 +1,4 @@
+import { DashboardWorkspace } from '@/components/workspace/dashboard-workspace'
 import { useMemo, useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import {
@@ -71,7 +72,12 @@ function StatCard({
       className="group rounded-2xl border bg-card p-4 shadow-soft transition-all hover:-translate-y-0.5 hover:border-primary/30 motion-reduce:transition-none sm:p-5"
     >
       <div className="flex items-center justify-between">
-        <span className={cn('flex size-10 items-center justify-center rounded-xl', tones[tone])}>
+        <span
+          className={cn(
+            'flex size-10 items-center justify-center rounded-xl',
+            tones[tone],
+          )}
+        >
           <Icon className="size-5" />
         </span>
         <ArrowRight className="size-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
@@ -90,8 +96,19 @@ function ProgressRing({ value, label }: { value: number; label: string }) {
   const c = 2 * Math.PI * r
   return (
     <div className="relative size-32 shrink-0">
-      <svg viewBox="0 0 100 100" className="size-full -rotate-90" aria-hidden="true">
-        <circle cx="50" cy="50" r={r} fill="none" strokeWidth="10" className="stroke-muted" />
+      <svg
+        viewBox="0 0 100 100"
+        className="size-full -rotate-90"
+        aria-hidden="true"
+      >
+        <circle
+          cx="50"
+          cy="50"
+          r={r}
+          fill="none"
+          strokeWidth="10"
+          className="stroke-muted"
+        />
         <circle
           cx="50"
           cy="50"
@@ -105,7 +122,9 @@ function ProgressRing({ value, label }: { value: number; label: string }) {
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="font-display text-2xl font-extrabold tabular-nums">{value}%</span>
+        <span className="font-display text-2xl font-extrabold tabular-nums">
+          {value}%
+        </span>
         <span className="text-[11px] text-muted-foreground">{label}</span>
       </div>
     </div>
@@ -113,8 +132,16 @@ function ProgressRing({ value, label }: { value: number; label: string }) {
 }
 
 function Dashboard() {
-  const { tasks, notes, classes, focusSessions, prefs, getSubject, loadSampleData } =
-    useStore()
+  const {
+    tasks,
+    notes: allNotes,
+    classes,
+    focusSessions,
+    prefs,
+    getSubject,
+    loadSampleData,
+  } = useStore()
+  const notes = allNotes.filter((n) => !n.deletedAt && !n.archived)
   const [taskDialogOpen, setTaskDialogOpen] = useState(false)
   const today = toDateKey()
   const now = new Date()
@@ -154,13 +181,9 @@ function Dashboard() {
       .slice(0, 5)
   }, [stats.pending, priorities, today])
 
-  const todaysClasses = useMemo(
-    () =>
-      classes
-        .filter((c) => c.day === todayIndex)
-        .sort((a, b) => a.start.localeCompare(b.start)),
-    [classes, todayIndex],
-  )
+  const todaysClasses = classes
+    .filter((c) => c.day === todayIndex)
+    .sort((a, b) => a.start.localeCompare(b.start))
 
   const focus = useMemo(() => {
     const todayCount = focusSessions.filter(
@@ -172,7 +195,13 @@ function Dashboard() {
       const minutes = focusSessions
         .filter((s) => toDateKey(new Date(s.completedAt)) === key)
         .reduce((sum, s) => sum + s.minutes, 0)
-      return { key, minutes, label: addDays(weekStart, i).toLocaleDateString(undefined, { weekday: 'short' }) }
+      return {
+        key,
+        minutes,
+        label: addDays(weekStart, i).toLocaleDateString(undefined, {
+          weekday: 'short',
+        }),
+      }
     })
     const weekMinutes = week.reduce((sum, d) => sum + d.minutes, 0)
     return { todayCount, week, weekMinutes }
@@ -180,7 +209,8 @@ function Dashboard() {
 
   const maxMinutes = Math.max(25, ...focus.week.map((d) => d.minutes))
   const name = prefs.displayName.trim()
-  const isBrandNew = tasks.length === 0 && notes.length === 0 && classes.length === 0
+  const isBrandNew =
+    tasks.length === 0 && notes.length === 0 && classes.length === 0
 
   return (
     <div className="space-y-6">
@@ -202,7 +232,9 @@ function Dashboard() {
               {stats.pending.length === 0
                 ? 'You’re all caught up. Plan your next study session or add new homework.'
                 : `You have ${stats.dueToday.length} assignment${stats.dueToday.length === 1 ? '' : 's'} due today${
-                    stats.overdue.length ? ` and ${stats.overdue.length} overdue` : ''
+                    stats.overdue.length
+                      ? ` and ${stats.overdue.length} overdue`
+                      : ''
                   }. Let’s make it a productive day.`}
             </p>
             {!name && (
@@ -221,12 +253,20 @@ function Dashboard() {
             >
               <Plus /> Add homework
             </Button>
-            <Button asChild variant="ghost" className="bg-white/15 text-white hover:bg-white/25 hover:text-white">
+            <Button
+              asChild
+              variant="ghost"
+              className="bg-white/15 text-white hover:bg-white/25 hover:text-white"
+            >
               <Link to="/focus">
                 <Timer /> Start focusing
               </Link>
             </Button>
-            <Button asChild variant="ghost" className="bg-white/15 text-white hover:bg-white/25 hover:text-white">
+            <Button
+              asChild
+              variant="ghost"
+              className="bg-white/15 text-white hover:bg-white/25 hover:text-white"
+            >
               <Link to="/notes">
                 <BookOpenText /> New note
               </Link>
@@ -242,7 +282,8 @@ function Dashboard() {
             <div>
               <p className="font-semibold">Welcome to StudySphere!</p>
               <p className="text-sm text-muted-foreground">
-                Start by adding homework or your class timetable — or load example data to explore.
+                Start by adding homework or your class timetable — or load
+                example data to explore.
               </p>
             </div>
           </div>
@@ -260,13 +301,52 @@ function Dashboard() {
         </div>
       )}
 
+      <DashboardWorkspace />
+
       {/* Stats */}
-      <section aria-label="Statistics" className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
-        <StatCard icon={ListTodo} label="Pending" value={stats.pending.length} hint={`${stats.dueToday.length} due today`} to="/homework" />
-        <StatCard icon={CheckCircle2} label="Completed" value={stats.completed} hint={`${stats.rate}% of all homework`} tone="success" to="/homework" />
-        <StatCard icon={AlertTriangle} label="Overdue" value={stats.overdue.length} hint={stats.overdue.length ? 'Needs attention' : 'Nothing overdue 🎉'} tone="danger" to="/homework" />
-        <StatCard icon={BookOpenText} label="Notes" value={notes.length} hint={`${new Set(notes.map((n) => n.subjectId)).size} subjects`} tone="violet" to="/notes" />
-        <StatCard icon={Flame} label="Focus today" value={focus.todayCount} hint={`Goal: ${prefs.dailyFocusGoal} sessions`} tone="warning" to="/focus" />
+      <section
+        aria-label="Statistics"
+        className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5"
+      >
+        <StatCard
+          icon={ListTodo}
+          label="Pending"
+          value={stats.pending.length}
+          hint={`${stats.dueToday.length} due today`}
+          to="/homework"
+        />
+        <StatCard
+          icon={CheckCircle2}
+          label="Completed"
+          value={stats.completed}
+          hint={`${stats.rate}% of all homework`}
+          tone="success"
+          to="/homework"
+        />
+        <StatCard
+          icon={AlertTriangle}
+          label="Overdue"
+          value={stats.overdue.length}
+          hint={stats.overdue.length ? 'Needs attention' : 'Nothing overdue 🎉'}
+          tone="danger"
+          to="/homework"
+        />
+        <StatCard
+          icon={BookOpenText}
+          label="Notes"
+          value={notes.length}
+          hint={`${new Set(notes.map((n) => n.subjectId)).size} subjects`}
+          tone="violet"
+          to="/notes"
+        />
+        <StatCard
+          icon={Flame}
+          label="Focus today"
+          value={focus.todayCount}
+          hint={`Goal: ${prefs.dailyFocusGoal} sessions`}
+          tone="warning"
+          to="/focus"
+        />
       </section>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -301,9 +381,14 @@ function Dashboard() {
           <Card className="rounded-2xl shadow-soft">
             <CardHeader className="flex flex-row items-center justify-between gap-2">
               <CardTitle className="flex items-center gap-2 font-display text-lg">
-                <ClipboardList className="size-5 text-primary" /> Upcoming homework
+                <ClipboardList className="size-5 text-primary" /> Upcoming
+                homework
               </CardTitle>
-              <Button variant="ghost" size="sm" onClick={() => setTaskDialogOpen(true)}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setTaskDialogOpen(true)}
+              >
                 <Plus /> Add
               </Button>
             </CardHeader>
@@ -314,11 +399,21 @@ function Dashboard() {
                     const subject = getSubject(t.subjectId)
                     const d = daysUntil(t.dueDate)
                     return (
-                      <li key={t.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
-                        <span className={cn('h-10 w-1 shrink-0 rounded-full', SUBJECT_COLORS[subject.color].dot)} />
+                      <li
+                        key={t.id}
+                        className="flex items-center gap-3 py-3 first:pt-0 last:pb-0"
+                      >
+                        <span
+                          className={cn(
+                            'h-10 w-1 shrink-0 rounded-full',
+                            SUBJECT_COLORS[subject.color].dot,
+                          )}
+                        />
                         <div className="min-w-0 flex-1">
                           <p className="truncate font-medium">{t.title}</p>
-                          <p className="text-xs text-muted-foreground">{subject.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {subject.name}
+                          </p>
                         </div>
                         <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs font-semibold">
                           {d === 1 ? 'Tomorrow' : `In ${d} days`}
@@ -369,28 +464,50 @@ function Dashboard() {
                     {focus.todayCount}/{prefs.dailyFocusGoal}
                   </span>
                 </div>
-                <Progress value={Math.min(100, (focus.todayCount / prefs.dailyFocusGoal) * 100)} />
+                <Progress
+                  value={Math.min(
+                    100,
+                    (focus.todayCount / prefs.dailyFocusGoal) * 100,
+                  )}
+                />
               </div>
               <div>
                 <div className="mb-3 flex items-center justify-between text-sm">
                   <span className="font-semibold">Focus this week</span>
-                  <span className="tabular-nums text-muted-foreground">{focus.weekMinutes} min</span>
+                  <span className="tabular-nums text-muted-foreground">
+                    {focus.weekMinutes} min
+                  </span>
                 </div>
-                <div className="flex h-28 items-end gap-2" role="img" aria-label={`Focus minutes this week: ${focus.week.map((d) => `${d.label} ${d.minutes}`).join(', ')}`}>
+                <div
+                  className="flex h-28 items-end gap-2"
+                  role="img"
+                  aria-label={`Focus minutes this week: ${focus.week.map((d) => `${d.label} ${d.minutes}`).join(', ')}`}
+                >
                   {focus.week.map((d) => (
-                    <div key={d.key} className="flex flex-1 flex-col items-center gap-1.5">
+                    <div
+                      key={d.key}
+                      className="flex flex-1 flex-col items-center gap-1.5"
+                    >
                       <div className="flex w-full flex-1 items-end">
                         <div
                           title={`${d.minutes} min`}
                           className={cn(
                             'w-full rounded-md transition-all duration-500 motion-reduce:transition-none',
                             d.minutes ? 'bg-brand' : 'bg-muted',
-                            d.key === today && 'ring-2 ring-primary/30 ring-offset-2 ring-offset-card',
+                            d.key === today &&
+                              'ring-2 ring-primary/30 ring-offset-2 ring-offset-card',
                           )}
-                          style={{ height: `${Math.max(6, (d.minutes / maxMinutes) * 100)}%` }}
+                          style={{
+                            height: `${Math.max(6, (d.minutes / maxMinutes) * 100)}%`,
+                          }}
                         />
                       </div>
-                      <span className={cn('text-[11px] text-muted-foreground', d.key === today && 'font-bold text-primary')}>
+                      <span
+                        className={cn(
+                          'text-[11px] text-muted-foreground',
+                          d.key === today && 'font-bold text-primary',
+                        )}
+                      >
                         {d.label}
                       </span>
                     </div>
@@ -418,11 +535,18 @@ function Dashboard() {
                   {todaysClasses.map((c) => {
                     const subject = getSubject(c.subjectId)
                     return (
-                      <li key={c.id} className={cn('rounded-xl border-l-4 bg-muted/50 px-3 py-2', SUBJECT_COLORS[subject.color].border)}>
+                      <li
+                        key={c.id}
+                        className={cn(
+                          'rounded-xl border-l-4 bg-muted/50 px-3 py-2',
+                          SUBJECT_COLORS[subject.color].border,
+                        )}
+                      >
                         <p className="text-sm font-semibold">{subject.name}</p>
                         <p className="flex flex-wrap items-center gap-x-3 text-xs text-muted-foreground">
                           <span className="inline-flex items-center gap-1">
-                            <Clock className="size-3" /> {formatTime(c.start)} – {formatTime(c.end)}
+                            <Clock className="size-3" /> {formatTime(c.start)} –{' '}
+                            {formatTime(c.end)}
                           </span>
                           {c.location && (
                             <span className="inline-flex items-center gap-1">

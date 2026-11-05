@@ -3,6 +3,7 @@ import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { NotFoundPage } from '@/components/error-pages'
 import { AppShell } from '@/components/app-shell'
+import { AuthGate } from '@/lib/auth'
 import { StoreProvider } from '@/lib/store'
 import { TimerProvider } from '@/lib/timer'
 
@@ -79,13 +80,15 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        <StoreProvider>
-          <TimerProvider>
-            <TooltipProvider>
-              <AppShell>{children}</AppShell>
-            </TooltipProvider>
-          </TimerProvider>
-        </StoreProvider>
+        <AuthGate>
+          <StoreProvider>
+            <TimerProvider>
+              <TooltipProvider>
+                <AppShell>{children}</AppShell>
+              </TooltipProvider>
+            </TimerProvider>
+          </StoreProvider>
+        </AuthGate>
         <Scripts />
       </body>
     </html>

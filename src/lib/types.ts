@@ -7,16 +7,11 @@ export interface Subject {
 }
 
 export type SubjectColor =
-  | 'indigo'
-  | 'violet'
-  | 'sky'
-  | 'emerald'
-  | 'amber'
-  | 'rose'
-  | 'teal'
-  | 'orange'
+  'indigo' | 'violet' | 'sky' | 'emerald' | 'amber' | 'rose' | 'teal' | 'orange'
 
 export interface Task {
+  reminderAt?: string
+  noteId?: string
   id: string
   title: string
   subjectId: string
@@ -30,6 +25,15 @@ export interface Task {
 }
 
 export interface Note {
+  html?: string
+  notebookId?: string
+  tags?: string[]
+  favorite?: boolean
+  archived?: boolean
+  deletedAt?: string | null
+  viewedAt?: string
+  color?: string
+  documentIds?: string[]
   id: string
   title: string
   content: string
@@ -65,4 +69,35 @@ export interface Preferences {
   theme: Theme
   sidebarCollapsed: boolean
   dailyFocusGoal: number
+}
+
+export interface Notebook {
+  id: string
+  title: string
+  parentId: string
+  subjectId: string
+}
+export interface Flashcard {
+  id: string
+  deck: string
+  front: string
+  back: string
+  due: string
+  interval: number
+  reviews: number
+  lastReviewed?: string
+}
+export interface StudyActivity {
+  id: string
+  title: string
+  completedAt: string
+}
+export interface StudyDocument {
+  id: string
+  name: string
+  type: string
+  size: number
+  notebookId: string
+  extractedText: string
+  createdAt: string
 }

@@ -2,88 +2,52 @@
 
 **Plan Smarter. Study Better.**
 
-StudySphere is a free, all-in-one productivity web app for students. It brings your homework, notes, focus sessions and weekly timetable together in one clean dashboard that works on laptops, tablets and phones — in light or dark mode.
+StudySphere combines its original homework planner, dashboard, timetable and focus timer with a private notes and AI study workspace. The existing Plus Jakarta Sans typography, purple identity and light/dark themes are retained.
 
-There is no sign-up and no server: everything you add is saved privately in your browser's `localStorage`.
+## Workspace
 
-## Features
+Notes autosave to a signed-in account. The Tiptap editor supports headings, emphasis, highlights, lists, checklists, links, quotes and tables. Notes support tags, subject assignment, notebooks, colors, pinning, favorites, duplication, archive, trash and restoration. Notebook parents support nested organization. Collections include recently viewed, pinned, favorites and archived notes. Select several notes to create an AI study guide.
 
-| Page | What you can do |
-| --- | --- |
-| **Dashboard** | Personal greeting, today's date, homework stats, notes count, today's priorities, upcoming homework, today's classes and study-progress charts. |
-| **Homework** | Add, edit, delete and complete assignments with a title, subject, due date, priority and details. Filter by subject, status and priority, search, sort, and spot overdue work highlighted in red. Undo accidental deletes. |
-| **Notes** | Create, edit, pin, search and delete notes, organised by colour-coded subject. |
-| **Focus Timer** | A 25-minute Pomodoro timer with start, pause, resume, reset and a 5-minute short break. It keeps running while you switch pages, shows the countdown in the browser tab and plays a chime when time is up. Completed sessions count towards a daily goal. |
-| **Timetable** | Add classes with subject, day, start/end time and room. Today is highlighted, the class happening right now is marked "Now", and overlapping classes are prevented. Manage your subjects and their colours. |
-| **Settings & About** | Edit your display name, switch light/dark mode, collapse the sidebar, set a daily focus goal, download a backup, load example data, delete all data, and read about the app. |
+Documents support private uploads, renaming, notebook assignment, download, deletion and supported previews. PDF, DOCX and TXT text is extracted in the browser; images can be previewed and attached. Files are limited to 4 MB. PDF extraction reads up to 150 pages and 200,000 characters. Scanned PDFs and images require OCR, which is not included. Original files remain available even when text extraction fails.
 
-## Tech stack
+The AI assistant uses real source content for summaries, explanations, writing improvements, revision notes, study guides, flashcards and interactive quizzes. Students explicitly choose Generate before content is transmitted. Flashcards can also be created manually and reviewed with Easy, Medium and Difficult ratings. Review dates and activity progress persist. Task reminders appear while the app is open; tasks can link to notes and appear on a monthly calendar.
 
-- [React 19](https://react.dev) with [TanStack Start](https://tanstack.com/start) and file-based routing
-- [Tailwind CSS 4](https://tailwindcss.com) for styling, with theme colours in `src/styles.css`
-- [shadcn/ui](https://ui.shadcn.com) components (built on Radix UI)
-- [lucide-react](https://lucide.dev) icons and [sonner](https://sonner.emilkowal.ski) toast messages
-- TypeScript
-- Deployed on [Netlify](https://netlify.com)
+Global search covers note content, tags, notebook names, document extracted text and flashcards, with keyword highlighting and natural-language query cleanup. An explicit AI query-expansion action includes related academic concepts without sending the workspace corpus. Vector embeddings and custom smart-collection rules are not implemented.
 
-No paid APIs, API keys or external services are used.
+## Development
 
-## Run it on your computer
+Use Node 22.13+ or 24 and pnpm (the repository lockfile is pnpm-lock.yaml).
 
-You need [Node.js](https://nodejs.org) version 22.13 or newer.
-
-```bash
-# 1. Install the dependencies (only needed once)
-npm install
-
-# 2. Start the development server
-npm run dev
+```sh
+pnpm install
+netlify dev --port 8889
+pnpm run typecheck
+pnpm run lint
+pnpm test
 ```
 
-Then open <http://localhost:3000> in your browser. Changes you make to the code reload automatically.
+The Netlify development server supplies Functions, Identity and Blobs emulation. Plain Vite alone does not supply those services. Deployment configuration remains `vite build` with `dist/client` as the published directory. The deployment platform performs the production build.
 
-Other useful commands:
+## Storage, account security and migration
 
-```bash
-npm run build      # Create a production build in dist/
-npm run preview    # Preview the production build locally
-npm run typecheck  # Check TypeScript types
-npm run lint       # Check code style
-npm test           # Run the tests
-```
+Netlify Identity handles sign-in, registration, email confirmation, password recovery and token refresh. Identity has been enabled for this project. New registrations normally require email confirmation. The application does not create administrator accounts or bypass confirmation.
 
-## Deploying to Netlify
+Netlify Database stores a revisioned private workspace record per verified Identity user, containing notes, notebooks, tasks, subjects, timetable, focus sessions, flashcards, activity and preferences. Document metadata lives in a separate owned table; originals are stored in Netlify Blobs under user-specific keys. Functions derive ownership from verified Identity context, never a submitted user ID. Private responses disable caching. Concurrent saves use optimistic revision checks and show a conflict rather than replacing newer data.
 
-The project is already configured in `netlify.toml` (build command `vite build`, publish directory `dist/client`). Connect the repository to Netlify, or run `netlify deploy`, and it builds and deploys automatically.
+Schema definitions live in `db/schema.ts`. The generated migration in `netlify/database/migrations` is applied automatically during deployment. Do not manually run schema pushes or migrations. Every schema change needs a new generated migration.
 
-## Where is my data stored?
+Old browser storage is preserved. After signing in, **Import browser data** explicitly merges the previous tasks, notes, subjects, timetable and focus history into that account. Importing the same IDs twice does not duplicate records. Browser storage is now only used for Identity session management, legacy imports and a user-scoped recovery draft; it is not the primary content database.
 
-All data lives in your browser under these `localStorage` keys:
+When cloud saving fails, the UI shows an error, preserves the private draft, offers retry/export/recovery and warns before leaving with unsaved changes. A conflicting draft requires an explicit recovery choice. Export includes workspace content, recovery draft and document metadata when available. Download document originals separately. Settings reset clears workspace records, while documents must be deleted from the document library.
 
-| Key | Contents |
-| --- | --- |
-| `studysphere.tasks` | Homework assignments |
-| `studysphere.notes` | Notes |
-| `studysphere.subjects` | Subjects and their colours |
-| `studysphere.timetable` | Timetable classes |
-| `studysphere.focusSessions` | Completed focus sessions |
-| `studysphere.preferences` | Display name, theme, sidebar and goal settings |
+The current workspace API transfers a bounded snapshot (up to 4 MB), and the client displays notes in batches of 30. Document and global-search collections currently load into the client. Larger installations should move to per-entity pagination and server search rather than increasing snapshot limits.
 
-Because the data is stored per browser, it does not sync between devices. Use **Settings → Download backup** to save a copy.
+## AI setup and failures
 
-## Project structure
+The server-side OpenAI SDK uses Netlify AI Gateway with `gpt-4.1-mini`; no provider credentials are included in browser code. Netlify injects gateway configuration at runtime. Enable AI features in the Netlify project configuration and ensure the account has available credits. The site needs an existing production deployment. No user-entered provider keys are required.
 
-```
-src/
-├── routes/          # One file per page (index = Dashboard, homework, notes, focus, timetable, settings)
-├── components/      # App shell, dialogs, task/note/subject widgets
-│   └── ui/          # shadcn/ui base components
-├── lib/
-│   ├── store.tsx    # App state + localStorage persistence (React context)
-│   ├── timer.tsx    # Focus timer state shared across pages
-│   ├── types.ts     # Data types
-│   ├── dates.ts     # Date helpers
-│   ├── subjects.ts  # Subject colours and defaults
-│   └── sample-data.ts # Example content
-└── styles.css       # Theme colours for light and dark mode
-```
+AI errors and usage limits produce visible retry guidance without replacing original content or returning sample answers. Source text is limited to 80,000 characters per request. Generated quizzes and flashcards are validated before display or saving. Students should verify generated explanations against course materials.
+
+## Validation
+
+Type checking, lint and automated tests cover storage recovery, autosave across remounts, notebook and reminder persistence, note trash/restore, authenticated owner scoping, unauthorized requests, conflict responses, AI failures and source forwarding, search normalization and review scheduling. Live Gateway smoke checks verify real summaries and structured quiz/flashcard responses. Browser checks use isolated mocked account/storage responses; they do not establish that production email delivery or a not-yet-applied database migration works. Complete account-to-account and uploaded-file checks against the deployed preview after automatic migration application.
