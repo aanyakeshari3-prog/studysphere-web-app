@@ -1,3 +1,4 @@
+import { Link } from '@tanstack/react-router'
 import { CalendarClock, Pencil, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Task } from '@/lib/types'
@@ -32,7 +33,10 @@ export function TaskItem({
   const toggle = () => {
     toggleTask(task.id)
     if (task.completed) toast('Marked as not done', { description: task.title })
-    else toast.success('Nice work! Assignment completed ✅', { description: task.title })
+    else
+      toast.success('Nice work! Assignment completed ✅', {
+        description: task.title,
+      })
   }
 
   return (
@@ -49,7 +53,11 @@ export function TaskItem({
         checked={task.completed}
         onCheckedChange={toggle}
         className="mt-0.5 size-5 rounded-md"
-        aria-label={task.completed ? `Mark “${task.title}” as not done` : `Mark “${task.title}” as done`}
+        aria-label={
+          task.completed
+            ? `Mark “${task.title}” as not done`
+            : `Mark “${task.title}” as done`
+        }
       />
       <div className="min-w-0 flex-1">
         <label
@@ -62,7 +70,19 @@ export function TaskItem({
           {task.title}
         </label>
         {!compact && task.notes && (
-          <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{task.notes}</p>
+          <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
+            {task.notes}
+          </p>
+        )}
+        {task.noteId && (
+          <Link to="/notes" className="mt-1 inline-block text-xs text-primary">
+            Open related note
+          </Link>
+        )}
+        {task.reminderAt && (
+          <p className="mt-1 text-xs text-muted-foreground">
+            Reminder: {new Date(task.reminderAt).toLocaleString()}
+          </p>
         )}
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <SubjectBadge subject={getSubject(task.subjectId)} />

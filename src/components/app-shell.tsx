@@ -1,3 +1,16 @@
+import { TaskReminders } from '@/components/workspace/reminders'
+import {
+  FolderTree,
+  FileText,
+  Sparkles,
+  Layers,
+  Star,
+  Trash2,
+  LogOut,
+  Cloud,
+} from 'lucide-react'
+import { useAuth } from '@/lib/auth'
+import { GlobalSearch } from '@/components/workspace/global-search'
 import { useState } from 'react'
 import { Link, useRouterState } from '@tanstack/react-router'
 import {
@@ -40,6 +53,13 @@ type NavPath =
   | '/focus'
   | '/timetable'
   | '/settings'
+  | '/notebooks'
+  | '/documents'
+  | '/assistant'
+  | '/flashcards'
+  | '/calendar'
+  | '/favorites'
+  | '/trash'
 
 interface NavItem {
   to: NavPath
@@ -50,11 +70,38 @@ interface NavItem {
 
 export const NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Dashboard', short: 'Home', icon: LayoutDashboard },
-  { to: '/homework', label: 'Homework', short: 'Homework', icon: ClipboardList },
-  { to: '/notes', label: 'Notes', short: 'Notes', icon: BookOpenText },
+  {
+    to: '/homework',
+    label: 'Tasks & Homework',
+    short: 'Homework',
+    icon: ClipboardList,
+  },
+  { to: '/notes', label: 'My Notes', short: 'Notes', icon: BookOpenText },
   { to: '/focus', label: 'Focus Timer', short: 'Focus', icon: Timer },
-  { to: '/timetable', label: 'Timetable', short: 'Timetable', icon: CalendarDays },
-  { to: '/settings', label: 'Settings & About', short: 'Settings', icon: Settings },
+  {
+    to: '/timetable',
+    label: 'Timetable',
+    short: 'Timetable',
+    icon: CalendarDays,
+  },
+  {
+    to: '/notebooks',
+    label: 'Notebooks',
+    short: 'Notebooks',
+    icon: FolderTree,
+  },
+  { to: '/documents', label: 'Documents', short: 'Files', icon: FileText },
+  { to: '/assistant', label: 'AI Assistant', short: 'AI', icon: Sparkles },
+  { to: '/flashcards', label: 'Flashcards', short: 'Cards', icon: Layers },
+  { to: '/calendar', label: 'Calendar', short: 'Calendar', icon: CalendarDays },
+  { to: '/favorites', label: 'Favorites', short: 'Favorites', icon: Star },
+  { to: '/trash', label: 'Trash', short: 'Trash', icon: Trash2 },
+  {
+    to: '/settings',
+    label: 'Settings & About',
+    short: 'Settings',
+    icon: Settings,
+  },
 ]
 
 function useIsActive() {
@@ -104,7 +151,11 @@ function TimerPill({ collapsed = false }: { collapsed?: boolean }) {
         <>
           {formatClock(remaining)}
           <span className="text-xs font-medium opacity-70">
-            {status === 'paused' ? 'Paused' : mode === 'focus' ? 'Focus' : 'Break'}
+            {status === 'paused'
+              ? 'Paused'
+              : mode === 'focus'
+                ? 'Focus'
+                : 'Break'}
           </span>
         </>
       )}
@@ -179,7 +230,7 @@ function DesktopSidebar() {
   return (
     <aside
       className={cn(
-        'sticky top-0 hidden h-screen shrink-0 flex-col border-r border-sidebar-border bg-sidebar p-4 transition-[width] duration-300 motion-reduce:transition-none lg:flex',
+        'sticky top-0 hidden h-screen shrink-0 flex-col overflow-y-auto border-r border-sidebar-border bg-sidebar p-4 transition-[width] duration-300 motion-reduce:transition-none lg:flex',
         collapsed ? 'w-20' : 'w-64',
       )}
     >
@@ -202,7 +253,7 @@ function DesktopSidebar() {
               Plan Smarter. Study Better.
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Everything is saved privately in this browser.
+              Your private workspace, saved to the cloud.
             </p>
           </div>
         )}
@@ -231,7 +282,7 @@ function DesktopSidebar() {
 
 function MobileHeader({ onOpenMenu }: { onOpenMenu: () => void }) {
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/80 px-4 backdrop-blur-lg lg:hidden">
+    <header className="sticky top-0 z-30 flex min-h-16 flex-wrap items-center justify-between gap-y-2 border-b bg-background/80 px-4 py-2 backdrop-blur-lg lg:hidden">
       <div className="flex items-center gap-2">
         <Button
           variant="ghost"
@@ -246,6 +297,7 @@ function MobileHeader({ onOpenMenu }: { onOpenMenu: () => void }) {
         </Link>
       </div>
       <div className="flex items-center gap-1">
+        <GlobalSearch compact />
         <TimerPill />
         <ThemeToggle />
       </div>
@@ -292,6 +344,7 @@ function MobileBottomNav() {
 function DesktopTopBar() {
   return (
     <div className="hidden items-center justify-end gap-2 px-8 pt-6 lg:flex">
+      <GlobalSearch />
       <TimerPill />
       <ThemeToggle />
     </div>
@@ -299,16 +352,83 @@ function DesktopTopBar() {
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { prefs, hydrated } = useStore()
+  const {
+    prefs,
+    hydrated,
+    syncStatus,
+    syncError,
+    retrySave,
+    recoverDraft,
+    discardDraft,
+    exportBackup,
+    importLegacy,
+  } = useStore()
+  const { signOut } = useAuth()
   const [menuOpen, setMenuOpen] = useState(false)
 
   return (
     <div className="flex min-h-screen bg-background">
+      <TaskReminders />
       <DesktopSidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <MobileHeader onOpenMenu={() => setMenuOpen(true)} />
         <DesktopTopBar />
         <main className="mx-auto w-full max-w-content flex-1 px-4 pt-6 pb-28 sm:px-6 lg:px-8 lg:pt-2 lg:pb-12">
+          <div className="mb-5 flex flex-wrap items-center gap-2 rounded-xl border bg-card px-3 py-2 text-xs text-muted-foreground">
+            <Cloud className="size-3.5" />
+            <span role="status">{syncStatus}</span>
+            <span className="flex-1" />
+            <button className="hover:text-primary" onClick={importLegacy}>
+              Import browser data
+            </button>
+            <button className="hover:text-primary" onClick={exportBackup}>
+              Export backup
+            </button>
+            <button
+              className="flex items-center gap-1 hover:text-primary"
+              onClick={() => {
+                if (
+                  syncStatus !== 'Saved to cloud' &&
+                  !window.confirm(
+                    'Some changes may not be saved. Export a backup before signing out. Continue?',
+                  )
+                )
+                  return
+                void signOut()
+              }}
+            >
+              <LogOut className="size-3" /> Sign out
+            </button>
+          </div>
+          {syncError && (
+            <div
+              role="alert"
+              className="mb-5 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm"
+            >
+              {syncError}
+              <div className="mt-2 flex gap-3">
+                <Button size="sm" onClick={retrySave}>
+                  Retry
+                </Button>
+                <Button size="sm" variant="outline" onClick={discardDraft}>
+                  Discard browser draft
+                </Button>
+                <Button size="sm" variant="outline" onClick={recoverDraft}>
+                  Recover browser draft
+                </Button>
+                <Button size="sm" variant="outline" onClick={exportBackup}>
+                  Export recovery backup
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => window.location.reload()}
+                >
+                  Reload cloud version
+                </Button>
+              </div>
+            </div>
+          )}
           {hydrated ? (
             children
           ) : (
@@ -321,7 +441,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </div>
       <MobileBottomNav />
       <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
-        <SheetContent side="left" className="w-72 bg-sidebar p-4">
+        <SheetContent
+          side="left"
+          className="w-72 overflow-y-auto bg-sidebar p-4"
+        >
           <SheetHeader className="p-0 pb-6">
             <SheetTitle className="sr-only">Navigation</SheetTitle>
             <SheetDescription className="sr-only">
@@ -334,11 +457,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <span className="block text-sm font-semibold text-accent-foreground">
               Plan Smarter. Study Better.
             </span>
-            Your data stays in this browser.
+            Your study materials stay private to your account.
           </p>
         </SheetContent>
       </Sheet>
-      <Toaster theme={prefs.theme} position="top-right" richColors closeButton />
+      <Toaster
+        theme={prefs.theme}
+        position="top-right"
+        richColors
+        closeButton
+      />
     </div>
   )
 }

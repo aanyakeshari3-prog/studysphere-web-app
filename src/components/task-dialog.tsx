@@ -36,7 +36,8 @@ export function validateTask(input: TaskInput, isNew: boolean): Errors {
   const errors: Errors = {}
   const title = input.title.trim()
   if (!title) errors.title = 'Give the assignment a title.'
-  else if (title.length > 120) errors.title = 'Keep the title under 120 characters.'
+  else if (title.length > 120)
+    errors.title = 'Keep the title under 120 characters.'
   if (!input.dueDate || !/^\d{4}-\d{2}-\d{2}$/.test(input.dueDate))
     errors.dueDate = 'Pick a due date.'
   else if (isNew && input.dueDate < toDateKey())
@@ -55,13 +56,15 @@ export function TaskDialog({
   task?: Task | null
   defaultSubjectId?: string
 }) {
-  const { addTask, updateTask } = useStore()
+  const { addTask, updateTask, notes } = useStore()
   const [form, setForm] = useState<TaskInput>(blank)
   const [errors, setErrors] = useState<Errors>({})
   const isNew = !task
 
   useEffect(() => {
     if (!open) return
+    // Reset controlled fields when an existing dialog is opened.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setErrors({})
     setForm(
       task
@@ -71,6 +74,8 @@ export function TaskDialog({
             dueDate: task.dueDate,
             priority: task.priority,
             notes: task.notes,
+            noteId: task.noteId,
+            reminderAt: task.reminderAt,
           }
         : { ...blank(), subjectId: defaultSubjectId ?? '' },
     )
@@ -86,7 +91,11 @@ export function TaskDialog({
     const found = validateTask(form, isNew)
     setErrors(found)
     if (Object.keys(found).length) return
-    const clean = { ...form, title: form.title.trim(), notes: form.notes.trim() }
+    const clean = {
+      ...form,
+      title: form.title.trim(),
+      notes: form.notes.trim(),
+    }
     if (task) {
       updateTask(task.id, clean)
       toast.success('Assignment updated')
@@ -101,7 +110,9 @@ export function TaskDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{isNew ? 'New assignment' : 'Edit assignment'}</DialogTitle>
+          <DialogTitle>
+            {isNew ? 'New assignment' : 'Edit assignment'}
+          </DialogTitle>
           <DialogDescription>
             {isNew
               ? 'Add homework with a subject, due date and priority.'
@@ -160,7 +171,11 @@ export function TaskDialog({
                     className={cn(
                       'flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none',
                       selected
-                        ? cn('border-transparent', PRIORITY_META[p].className, 'ring-2 ring-current/30')
+                        ? cn(
+                            'border-transparent',
+                            PRIORITY_META[p].className,
+                            'ring-2 ring-current/30',
+                          )
                         : 'hover:bg-muted',
                     )}
                   >
@@ -173,7 +188,10 @@ export function TaskDialog({
           </fieldset>
           <div className="grid gap-2">
             <Label htmlFor="task-notes">
-              Details <span className="font-normal text-muted-foreground">(optional)</span>
+              Details{' '}
+              <span className="font-normal text-muted-foreground">
+                (optional)
+              </span>
             </Label>
             <Textarea
               id="task-notes"
@@ -184,11 +202,47 @@ export function TaskDialog({
               maxLength={500}
             />
           </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="text-sm font-medium">
+              Reminder
+              <Input
+                type="datetime-local"
+                value={form.reminderAt || ''}
+                onChange={(e) => set('reminderAt', e.target.value)}
+              />
+              <span className="text-xs font-normal text-muted-foreground">
+                Shown while StudySphere is open.
+              </span>
+            </label>
+            <label className="text-sm font-medium">
+              Related note
+              <select
+                className="workspace-select w-full"
+                value={form.noteId || ''}
+                onChange={(e) => set('noteId', e.target.value)}
+              >
+                <option value="">No linked note</option>
+                {notes
+                  .filter((n) => !n.deletedAt)
+                  .map((n) => (
+                    <option key={n.id} value={n.id}>
+                      {n.title}
+                    </option>
+                  ))}
+              </select>
+            </label>
+          </div>
           <DialogFooter className="mt-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
               Cancel
             </Button>
-            <Button type="submit">{isNew ? 'Add assignment' : 'Save changes'}</Button>
+            <Button type="submit">
+              {isNew ? 'Add assignment' : 'Save changes'}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

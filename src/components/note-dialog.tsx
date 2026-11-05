@@ -38,6 +38,8 @@ export function NoteDialog({
 
   useEffect(() => {
     if (!open) return
+    // Reset controlled fields when an existing dialog is opened.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setErrors({})
     setForm(
       note
