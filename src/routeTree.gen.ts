@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AssistantRouteImport } from './routes/assistant'
 import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as DocumentsRouteImport } from './routes/documents'
@@ -22,10 +23,20 @@ import { Route as NotesRouteImport } from './routes/notes'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as TimetableRouteImport } from './routes/timetable'
 import { Route as TrashRouteImport } from './routes/trash'
+import { Route as AdminActivityRouteImport } from './routes/admin_.activity'
+import { Route as AdminAnalyticsRouteImport } from './routes/admin_.analytics'
+import { Route as AdminAuditRouteImport } from './routes/admin_.audit'
+import { Route as AdminUsersRouteImport } from './routes/admin_.users'
+import { Route as AdminUsersUserIdRouteImport } from './routes/admin_.users_.$userId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AssistantRoute = AssistantRouteImport.update({
@@ -88,9 +99,35 @@ const TrashRoute = TrashRouteImport.update({
   path: '/trash',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminActivityRoute = AdminActivityRouteImport.update({
+  id: '/admin_/activity',
+  path: '/admin/activity',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminAnalyticsRoute = AdminAnalyticsRouteImport.update({
+  id: '/admin_/analytics',
+  path: '/admin/analytics',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminAuditRoute = AdminAuditRouteImport.update({
+  id: '/admin_/audit',
+  path: '/admin/audit',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminUsersRoute = AdminUsersRouteImport.update({
+  id: '/admin_/users',
+  path: '/admin/users',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminUsersUserIdRoute = AdminUsersUserIdRouteImport.update({
+  id: '/admin_/users_/$userId',
+  path: '/admin/users/$userId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/assistant': typeof AssistantRoute
   '/calendar': typeof CalendarRoute
   '/documents': typeof DocumentsRoute
@@ -103,9 +140,15 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/timetable': typeof TimetableRoute
   '/trash': typeof TrashRoute
+  '/admin/activity': typeof AdminActivityRoute
+  '/admin/analytics': typeof AdminAnalyticsRoute
+  '/admin/audit': typeof AdminAuditRoute
+  '/admin/users': typeof AdminUsersRoute
+  '/admin/users/$userId': typeof AdminUsersUserIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/assistant': typeof AssistantRoute
   '/calendar': typeof CalendarRoute
   '/documents': typeof DocumentsRoute
@@ -118,10 +161,16 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/timetable': typeof TimetableRoute
   '/trash': typeof TrashRoute
+  '/admin/activity': typeof AdminActivityRoute
+  '/admin/analytics': typeof AdminAnalyticsRoute
+  '/admin/audit': typeof AdminAuditRoute
+  '/admin/users': typeof AdminUsersRoute
+  '/admin/users/$userId': typeof AdminUsersUserIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/assistant': typeof AssistantRoute
   '/calendar': typeof CalendarRoute
   '/documents': typeof DocumentsRoute
@@ -134,11 +183,17 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/timetable': typeof TimetableRoute
   '/trash': typeof TrashRoute
+  '/admin_/activity': typeof AdminActivityRoute
+  '/admin_/analytics': typeof AdminAnalyticsRoute
+  '/admin_/audit': typeof AdminAuditRoute
+  '/admin_/users': typeof AdminUsersRoute
+  '/admin_/users_/$userId': typeof AdminUsersUserIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/admin'
     | '/assistant'
     | '/calendar'
     | '/documents'
@@ -151,9 +206,15 @@ export interface FileRouteTypes {
     | '/settings'
     | '/timetable'
     | '/trash'
+    | '/admin/activity'
+    | '/admin/analytics'
+    | '/admin/audit'
+    | '/admin/users'
+    | '/admin/users/$userId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/admin'
     | '/assistant'
     | '/calendar'
     | '/documents'
@@ -166,9 +227,15 @@ export interface FileRouteTypes {
     | '/settings'
     | '/timetable'
     | '/trash'
+    | '/admin/activity'
+    | '/admin/analytics'
+    | '/admin/audit'
+    | '/admin/users'
+    | '/admin/users/$userId'
   id:
     | '__root__'
     | '/'
+    | '/admin'
     | '/assistant'
     | '/calendar'
     | '/documents'
@@ -181,10 +248,16 @@ export interface FileRouteTypes {
     | '/settings'
     | '/timetable'
     | '/trash'
+    | '/admin_/activity'
+    | '/admin_/analytics'
+    | '/admin_/audit'
+    | '/admin_/users'
+    | '/admin_/users_/$userId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRoute
   AssistantRoute: typeof AssistantRoute
   CalendarRoute: typeof CalendarRoute
   DocumentsRoute: typeof DocumentsRoute
@@ -197,6 +270,11 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   TimetableRoute: typeof TimetableRoute
   TrashRoute: typeof TrashRoute
+  AdminActivityRoute: typeof AdminActivityRoute
+  AdminAnalyticsRoute: typeof AdminAnalyticsRoute
+  AdminAuditRoute: typeof AdminAuditRoute
+  AdminUsersRoute: typeof AdminUsersRoute
+  AdminUsersUserIdRoute: typeof AdminUsersUserIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -206,6 +284,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/assistant': {
@@ -292,11 +377,47 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TrashRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin_/activity': {
+      id: '/admin_/activity'
+      path: '/admin/activity'
+      fullPath: '/admin/activity'
+      preLoaderRoute: typeof AdminActivityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin_/analytics': {
+      id: '/admin_/analytics'
+      path: '/admin/analytics'
+      fullPath: '/admin/analytics'
+      preLoaderRoute: typeof AdminAnalyticsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin_/audit': {
+      id: '/admin_/audit'
+      path: '/admin/audit'
+      fullPath: '/admin/audit'
+      preLoaderRoute: typeof AdminAuditRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin_/users': {
+      id: '/admin_/users'
+      path: '/admin/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AdminUsersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin_/users_/$userId': {
+      id: '/admin_/users_/$userId'
+      path: '/admin/users/$userId'
+      fullPath: '/admin/users/$userId'
+      preLoaderRoute: typeof AdminUsersUserIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRoute,
   AssistantRoute: AssistantRoute,
   CalendarRoute: CalendarRoute,
   DocumentsRoute: DocumentsRoute,
@@ -309,6 +430,11 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   TimetableRoute: TimetableRoute,
   TrashRoute: TrashRoute,
+  AdminActivityRoute: AdminActivityRoute,
+  AdminAnalyticsRoute: AdminAnalyticsRoute,
+  AdminAuditRoute: AdminAuditRoute,
+  AdminUsersRoute: AdminUsersRoute,
+  AdminUsersUserIdRoute: AdminUsersUserIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

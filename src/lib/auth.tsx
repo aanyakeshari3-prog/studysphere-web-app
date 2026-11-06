@@ -1,11 +1,10 @@
+import { api } from './api'
 import { useEffect, useState, createContext, useContext } from 'react'
 import {
   getUser,
-  login,
   signup,
   logout,
   handleAuthCallback,
-  requestPasswordRecovery,
   updateUser,
   onAuthChange,
 } from '@netlify/identity'
@@ -50,7 +49,11 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         setMode('login')
         setMessage('Password updated.')
       } else if (mode === 'recover') {
-        await requestPasswordRecovery(email)
+        await api('/api/auth-access', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'recover', email }),
+        })
         setMessage('Check your email for a recovery link.')
       } else if (mode === 'signup') {
         const user = await signup(email, password)
@@ -58,8 +61,12 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         else
           setMessage('Check your email to confirm your account, then sign in.')
       } else {
-        const user = await login(email, password)
-        setUserId(user.id)
+        await api('/api/auth-access', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'login', email, password }),
+        })
+        window.location.reload()
       }
     } catch (error) {
       setMessage(
@@ -77,6 +84,10 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         value={{
           userId,
           signOut: async () => {
+            await fetch('/api/session-event', {
+              method: 'POST',
+              credentials: 'same-origin',
+            }).catch(() => {})
             await logout()
             setUserId('')
           },
@@ -96,6 +107,11 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         <p className="mt-3 mb-7 text-sm text-muted-foreground">
           Notes, plans, and a little help making sense of it all. Sign in to
           save your work securely across devices.
+        </p>
+        <p className="mb-4 text-xs text-muted-foreground">
+          We record account and feature usage metadata for security and service
+          analytics. Activity is retained for 90 days and admin audit records
+          for 365 days. Private notes, files, and AI conversations are excluded.
         </p>
         <form className="space-y-4" onSubmit={submit}>
           {mode !== 'reset' && (

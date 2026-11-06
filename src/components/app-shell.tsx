@@ -365,6 +365,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   } = useStore()
   const { signOut } = useAuth()
   const [menuOpen, setMenuOpen] = useState(false)
+  const pathname = useRouterState({ select: (s) => s.location.pathname })
+  if (pathname === '/admin' || pathname.startsWith('/admin/'))
+    return <>{children}</>
 
   return (
     <div className="flex min-h-screen bg-background">

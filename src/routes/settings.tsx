@@ -120,6 +120,13 @@ function SettingsPage() {
 
   return (
     <div>
+      <p className="mb-4 rounded-xl border bg-card p-4 text-xs text-muted-foreground">
+        Privacy: StudySphere records account and feature usage metadata for
+        security and analytics. Private notes, document contents, and AI
+        conversations are excluded. Activity is retained for 90 days;
+        administrative audit records for 365 days. Account deletion removes
+        workspace data, files, and personal activity history.
+      </p>
       <PageHeader
         icon={Settings}
         title="Settings & About"
