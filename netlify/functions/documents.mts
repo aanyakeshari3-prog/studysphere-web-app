@@ -1,3 +1,4 @@
+import { measure } from '../lib/monitoring'
 import { transactionEvent } from '../lib/transaction-event'
 import { protectedHandler } from '../lib/protected-handler'
 import { recordEvent } from '../lib/admin-core'
@@ -15,6 +16,32 @@ export default protectedHandler(async (req: Request) => {
     req.headers.get('origin') !== new URL(req.url).origin
   )
     return new Response(null, { status: 403 })
+  const started = performance.now()
+  const feature =
+    req.method === 'POST'
+      ? 'upload'
+      : req.method === 'DELETE'
+        ? 'delete'
+        : 'document'
+  const report = (
+    status: string,
+    httpStatus: number,
+    bytes?: number,
+    fileType?: string,
+    code?: string,
+  ) =>
+    measure({
+      userId: user.id,
+      category: 'storage',
+      provider: 'netlify-blobs',
+      feature,
+      status,
+      httpStatus,
+      bytes,
+      fileType,
+      code,
+      durationMs: performance.now() - started,
+    })
   try {
     const db = database()
     const url = new URL(req.url)
@@ -31,11 +58,13 @@ export default protectedHandler(async (req: Request) => {
     if (req.method === 'POST') {
       const form = await req.formData()
       const file = form.get('file')
-      if (!(file instanceof File) || file.size > 4_000_000 || file.size === 0)
+      if (!(file instanceof File) || file.size > 4_000_000 || file.size === 0) {
+        await report('failure', 400, undefined, undefined, 'invalid_size')
         return Response.json(
           { error: 'Choose a file between 1 byte and 4 MB.' },
           { status: 400 },
         )
+      }
       const extension = file.name.split('.').pop()?.toLowerCase()
       const types: Record<string, string> = {
         pdf: 'application/pdf',
@@ -46,11 +75,13 @@ export default protectedHandler(async (req: Request) => {
         jpeg: 'image/jpeg',
         webp: 'image/webp',
       }
-      if (!extension || !types[extension])
+      if (!extension || !types[extension]) {
+        await report('failure', 400, undefined, undefined, 'unsupported_type')
         return Response.json(
           { error: 'Supported files: PDF, DOCX, TXT, PNG, JPEG and WebP.' },
           { status: 400 },
         )
+      }
       const fileId = crypto.randomUUID()
       const key = `${user.id}/${fileId}`
       await getStore('study-documents').set(key, await file.arrayBuffer())
@@ -77,6 +108,7 @@ export default protectedHandler(async (req: Request) => {
           )
           return row
         })
+        await report('success', 200, file.size, types[extension])
         return Response.json(row)
       } catch (error) {
         await getStore('study-documents').delete(key)
@@ -130,10 +162,12 @@ export default protectedHandler(async (req: Request) => {
         await tx.delete(documents).where(condition)
         await transactionEvent(tx, user.id, 'document.deleted', 'documents')
       })
+      await report('success', 200, row.size, row.type)
       return Response.json({ ok: true })
     }
     return new Response(null, { status: 405 })
   } catch {
+    await report('failure', 503, undefined, undefined, 'storage_unavailable')
     return Response.json(
       { error: 'Document storage is unavailable. Please retry.' },
       { status: 503 },

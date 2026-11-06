@@ -1,3 +1,4 @@
+import { observe } from '../lib/monitoring'
 import { z } from 'zod'
 import { admin, getUser } from '@netlify/identity'
 import { getStore } from '@netlify/blobs'
@@ -16,7 +17,7 @@ import {
   errorResponse,
 } from '../lib/admin-core'
 
-export default async (req: Request) => {
+const handler = async (req: Request) => {
   let auditContext: { id: string; action: string; target?: string } | null =
     null
   try {
@@ -413,6 +414,9 @@ export default async (req: Request) => {
             await cleanup.query('BEGIN')
             await cleanup.query('DELETE FROM documents WHERE user_id=$1', [id])
             await cleanup.query('DELETE FROM workspaces WHERE user_id=$1', [id])
+            await cleanup.query('DELETE FROM monitor_events WHERE user_id=$1', [
+              id,
+            ])
             await cleanup.query(
               'DELETE FROM activity_events WHERE user_id=$1',
               [id],
@@ -471,3 +475,5 @@ export default async (req: Request) => {
   }
 }
 export const config = { path: '/api/admin' }
+
+export default observe('admin', handler)

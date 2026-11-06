@@ -56,9 +56,13 @@ beforeEach(() => {
   mocks.clientQuery.mockResolvedValue({ rows: [] })
 })
 describe('server authorization', () => {
-  it('rejects anonymous requests without querying the database', async () => {
+  it('rejects anonymous requests before reading accounts or reports, retaining safe failure telemetry', async () => {
     expect((await admin(request())).status).toBe(401)
-    expect(mocks.query).not.toHaveBeenCalled()
+    expect(
+      mocks.query.mock.calls.every(([sql]) =>
+        sql.startsWith('INSERT INTO monitor_'),
+      ),
+    ).toBe(true)
   })
   it('ignores claimed roles and query user IDs from students', async () => {
     mocks.user.mockResolvedValue({

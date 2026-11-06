@@ -1,3 +1,5 @@
+import { useEffect } from 'react'
+import { reportClientError } from './monitor-errors'
 import {
   Link,
   useRouter,
@@ -26,6 +28,9 @@ export function NotFoundPage() {
 
 export function RouteErrorPage({ reset }: ErrorComponentProps) {
   const router = useRouter()
+  useEffect(() => {
+    reportClientError('render-error')
+  }, [])
 
   return (
     <div className="grid min-h-[60vh] place-items-center px-6 py-16">

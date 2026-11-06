@@ -2,6 +2,7 @@ import {
   pgTable,
   text,
   integer,
+  bigint,
   jsonb,
   timestamp,
   index,
@@ -92,3 +93,57 @@ export const adminState = pgTable('admin_state', {
   key: text('key').primaryKey(),
   value: jsonb('value').notNull(),
 })
+
+// Operational metadata only. No prompts, document names, URLs, stacks or credentials.
+export const monitorEvents = pgTable(
+  'monitor_events',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id'),
+    category: text('category').notNull(),
+    feature: text('feature').notNull(),
+    provider: text('provider'),
+    model: text('model'),
+    status: text('status').notNull(),
+    httpStatus: integer('http_status'),
+    durationMs: integer('duration_ms'),
+    inputTokens: integer('input_tokens'),
+    outputTokens: integer('output_tokens'),
+    cachedTokens: integer('cached_tokens'),
+    bytes: bigint('bytes', { mode: 'number' }),
+    fileType: text('file_type'),
+    code: text('code'),
+    environment: text('environment').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index('monitor_events_category_time_idx').on(t.category, t.createdAt),
+    index('monitor_events_user_time_idx').on(t.userId, t.createdAt),
+  ],
+)
+export const monitorIssues = pgTable(
+  'monitor_issues',
+  {
+    id: text('id').primaryKey(),
+    fingerprint: text('fingerprint').notNull().unique(),
+    kind: text('kind').notNull(),
+    category: text('category').notNull(),
+    feature: text('feature').notNull(),
+    severity: text('severity').notNull(),
+    message: text('message').notNull(),
+    httpStatus: integer('http_status'),
+    environment: text('environment').notNull(),
+    occurrences: integer('occurrences').notNull().default(1),
+    readAt: timestamp('read_at', { withTimezone: true }),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    lastSeen: timestamp('last_seen', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index('monitor_issues_kind_time_idx').on(t.kind, t.lastSeen)],
+)
