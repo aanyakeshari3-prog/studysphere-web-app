@@ -1,8 +1,10 @@
+import { protectedHandler } from '../lib/protected-handler'
+import { recordEvent } from '../lib/admin-core'
 import { getUser } from '@netlify/identity'
 import OpenAI from 'openai'
-export default async (req: Request) => {
-  if (!(await getUser()))
-    return Response.json({ error: 'Please sign in.' }, { status: 401 })
+export default protectedHandler(async (req: Request) => {
+  const user = await getUser()
+  if (!user) return Response.json({ error: 'Please sign in.' }, { status: 401 })
   if (req.method !== 'POST') return new Response(null, { status: 405 })
   if (
     req.headers.get('origin') &&
@@ -53,6 +55,7 @@ export default async (req: Request) => {
         { error: 'Add content before using this action.' },
         { status: 400 },
       )
+    await recordEvent(user.id, 'ai.request.initiated', 'ai')
     const response = await new OpenAI({
       timeout: 45000,
       maxRetries: 0,
@@ -78,12 +81,18 @@ export default async (req: Request) => {
         },
       ],
     })
+    await recordEvent(user.id, 'ai.request.completed', 'ai')
+    if (action === 'SearchTerms')
+      await recordEvent(user.id, 'search.performed', 'search')
     return Response.json({
       text:
         response.choices[0]?.message.content ||
         'No response was returned. Please retry.',
     })
   } catch (error) {
+    await recordEvent(user.id, 'ai.request.failed', 'ai', 'failure').catch(
+      () => {},
+    )
     const limited = error instanceof OpenAI.APIError && error.status === 429
     return Response.json(
       {
@@ -94,5 +103,5 @@ export default async (req: Request) => {
       { status: limited ? 429 : 503 },
     )
   }
-}
+})
 export const config = { path: '/api/study-ai' }

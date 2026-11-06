@@ -1,9 +1,12 @@
+import { workspaceEvents } from '../lib/workspace-events'
+import { protectedHandler } from '../lib/protected-handler'
+import { HttpError } from '../lib/admin-core'
 import { workspaceSchema } from '../../src/lib/workspace-validation'
 import { getUser } from '@netlify/identity'
 import { eq, and, sql } from 'drizzle-orm'
 import { database } from '../../db/index'
-import { workspaces } from '../../db/schema'
-export default async (req: Request) => {
+import { workspaces, activityEvents, adminAccounts } from '../../db/schema'
+export default protectedHandler(async (req: Request) => {
   const user = await getUser()
   if (!user)
     return Response.json({ error: 'Please sign in again.' }, { status: 401 })
@@ -41,32 +44,68 @@ export default async (req: Request) => {
         { status: 400 },
       )
     const data = parsed.data
-    if (revision === 0)
-      await db
-        .insert(workspaces)
-        .values({ userId: user.id, data, revision: 0 })
-        .onConflictDoNothing()
-    const [saved] = await db
-      .update(workspaces)
-      .set({
+    const saved = await db.transaction(async (tx) => {
+      const [previous] = await tx
+        .select()
+        .from(workspaces)
+        .where(eq(workspaces.userId, user.id))
+      if (revision === 0)
+        await tx
+          .insert(workspaces)
+          .values({ userId: user.id, data, revision: 0 })
+          .onConflictDoNothing()
+      const [saved] = await tx
+        .update(workspaces)
+        .set({
+          data,
+          revision: sql`${workspaces.revision} + 1`,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(workspaces.userId, user.id),
+            eq(workspaces.revision, revision),
+          ),
+        )
+        .returning({ revision: workspaces.revision })
+      if (!saved)
+        throw new HttpError(
+          409,
+          'This workspace changed in another tab. Export your draft, then reload to avoid overwriting it.',
+        )
+      const events = workspaceEvents(
+        previous?.data as Record<string, unknown> | null,
         data,
-        revision: sql`${workspaces.revision} + 1`,
-        updatedAt: new Date(),
-      })
-      .where(
-        and(eq(workspaces.userId, user.id), eq(workspaces.revision, revision)),
       )
-      .returning({ revision: workspaces.revision })
-    if (!saved)
-      return Response.json(
-        {
-          error:
-            'This workspace changed in another tab. Export your draft, then reload to avoid overwriting it.',
-        },
-        { status: 409 },
-      )
+      if (events.length) {
+        await tx
+          .insert(activityEvents)
+          .values(
+            events.map((event) => ({
+              id: crypto.randomUUID(),
+              userId: user.id,
+              type: event.type,
+              feature: event.feature,
+              status: 'success',
+              metadata: { count: event.count },
+              correlationId: `workspace:${user.id}:${saved.revision}`,
+            })),
+          )
+        await tx
+          .update(adminAccounts)
+          .set({ lastActive: new Date() })
+          .where(eq(adminAccounts.id, user.id))
+      }
+      await tx
+        .update(adminAccounts)
+        .set({ name: data.prefs.displayName })
+        .where(eq(adminAccounts.id, user.id))
+      return saved
+    })
     return Response.json(saved)
-  } catch {
+  } catch (error) {
+    if (error instanceof HttpError)
+      return Response.json({ error: error.message }, { status: error.status })
     return Response.json(
       {
         error:
@@ -75,5 +114,5 @@ export default async (req: Request) => {
       { status: 503 },
     )
   }
-}
+})
 export const config = { path: '/api/workspace' }

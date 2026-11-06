@@ -5,19 +5,34 @@ const { user, query, insert, update, mockDb, aiCreate } = vi.hoisted(() => {
   const query = vi.fn()
   const insert = vi.fn()
   const update = vi.fn()
+  const mockDb = {
+    select: () => ({ from: () => ({ where: query }) }),
+    insert: () => ({ values: () => ({ onConflictDoNothing: insert }) }),
+    update: () => ({ set: () => ({ where: () => ({ returning: update }) }) }),
+    transaction: async (
+      fn: (tx: unknown) => Promise<unknown>,
+    ): Promise<unknown> => fn(mockDb),
+  }
   return {
     user: vi.fn(),
     query,
     insert,
     update,
     aiCreate: vi.fn(),
-    mockDb: {
-      select: () => ({ from: () => ({ where: query }) }),
-      insert: () => ({ values: () => ({ onConflictDoNothing: insert }) }),
-      update: () => ({ set: () => ({ where: () => ({ returning: update }) }) }),
-    },
+    mockDb,
   }
 })
+vi.mock('@netlify/database', () => ({
+  getDatabase: () => ({
+    pool: {
+      query: vi.fn().mockResolvedValue({ rows: [] }),
+      connect: async () => ({
+        query: vi.fn().mockResolvedValue({ rows: [] }),
+        release: vi.fn(),
+      }),
+    },
+  }),
+}))
 vi.mock('@netlify/identity', () => ({ getUser: user }))
 vi.mock('../../db/index', () => ({ database: () => mockDb }))
 vi.mock('openai', () => {
@@ -36,6 +51,7 @@ import documents from '../../netlify/functions/documents.mts'
 import ai from '../../netlify/functions/study-ai.mts'
 beforeEach(() => {
   vi.clearAllMocks()
+  query.mockResolvedValue([])
   user.mockResolvedValue(null)
 })
 it('rejects anonymous reads, uploads, saves and AI requests before accessing storage', async () => {
