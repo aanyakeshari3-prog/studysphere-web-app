@@ -1,3 +1,4 @@
+import { MonitorErrors } from '@/components/monitor-errors'
 import { api } from './api'
 import { useEffect, useState, createContext, useContext } from 'react'
 import {
@@ -93,7 +94,10 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           },
         }}
       >
-        <div key={userId}>{children}</div>
+        <div key={userId}>
+          <MonitorErrors />
+          {children}
+        </div>
       </AuthContext.Provider>
     )
   return (

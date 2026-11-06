@@ -1,3 +1,4 @@
+import { observe } from '../lib/monitoring'
 import { login, requestPasswordRecovery } from '@netlify/identity'
 import type { Context } from '@netlify/functions'
 import { createHash } from 'node:crypto'
@@ -13,7 +14,7 @@ import {
 
 // Use the same Identity provider. Its server SDK sets secure session cookies;
 // credentials are used only for the provider call and are never logged or returned.
-export default async (req: Request, context: Context) => {
+const handler = async (req: Request, context: Context) => {
   try {
     if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed.')
     sameOrigin(req)
@@ -94,3 +95,5 @@ export default async (req: Request, context: Context) => {
   }
 }
 export const config = { path: '/api/auth-access' }
+
+export default observe('auth-access', handler)

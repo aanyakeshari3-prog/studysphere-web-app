@@ -1,3 +1,8 @@
+import {
+  Monitoring,
+  monitoringSections,
+  type MonitoringSection,
+} from './monitoring'
 import { useNavigate } from '@tanstack/react-router'
 import {
   features,
@@ -48,13 +53,19 @@ import {
 import { toast } from 'sonner'
 import { Toaster } from '@/components/ui/sonner'
 
-type Section = 'overview' | 'users' | 'events' | 'analytics' | 'audit'
+type Section =
+  MonitoringSection | 'overview' | 'users' | 'events' | 'analytics' | 'audit'
 const sections: { id: Section; label: string; icon: typeof Users }[] = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
   { id: 'users', label: 'User management', icon: Users },
   { id: 'events', label: 'Activity logs', icon: Activity },
   { id: 'analytics', label: 'Analytics', icon: BarChart3 },
-  { id: 'audit', label: 'Admin audit', icon: ShieldCheck },
+  ...monitoringSections
+    .filter((s) => !['notifications', 'settings'].includes(s.id))
+    .map((s) => ({ ...s, icon: Activity })),
+  { id: 'notifications', label: 'Notifications', icon: Bell },
+  { id: 'audit', label: 'Audit logs', icon: ShieldCheck },
+  { id: 'settings', label: 'Admin settings', icon: ShieldCheck },
 ]
 const sectionPaths = {
   overview: '/admin',
@@ -82,7 +93,15 @@ export function AdminDashboard({
     email: string
   } | null>(null)
   const [accessError, setAccessError] = useState(''),
-    [section, setSection] = useState<Section>(initialSection),
+    [section, setSection] = useState<Section>(() => {
+      const selected =
+        typeof window === 'undefined'
+          ? null
+          : new URLSearchParams(window.location.search).get('section')
+      return monitoringSections.some((s) => s.id === selected)
+        ? (selected as MonitoringSection)
+        : initialSection
+    }),
     [mobile, setMobile] = useState(false)
   const [range, setRange] = useState('30'),
     [from, setFrom] = useState(''),
@@ -142,7 +161,7 @@ export function AdminDashboard({
     return () => clearTimeout(timer)
   }, [q])
   useEffect(() => {
-    if (!me) return
+    if (!me || monitoringSections.some((s) => s.id === section)) return
     const abort = new AbortController(),
       params = new URLSearchParams({
         view: section,
@@ -218,7 +237,11 @@ export function AdminDashboard({
     return () => abort.abort()
   }, [me, initialUserId])
   function navigate(next: Section) {
-    void routeNavigate({ to: sectionPaths[next] })
+    if (monitoringSections.some((s) => s.id === next)) {
+      window.location.assign('/admin?section=' + next)
+      return
+    }
+    void routeNavigate({ to: sectionPaths[next as keyof typeof sectionPaths] })
     setSection(next)
     setPage(1)
     setQ('')
@@ -318,20 +341,26 @@ export function AdminDashboard({
         CONTROL CENTER
       </p>
       <nav aria-label="Administration" className="space-y-1">
-        {sections.map((s) => (
-          <button
-            key={s.id}
-            onClick={() => navigate(s.id)}
-            aria-current={section === s.id ? 'page' : undefined}
-            className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium ${section === s.id ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted'}`}
-          >
-            <s.icon className="size-4" />
-            {s.label}
-            {section === s.id && (
-              <span className="ml-auto size-1.5 rounded-full bg-primary" />
-            )}
-          </button>
-        ))}
+        {sections
+          .filter(
+            (s) =>
+              me.role === 'owner' ||
+              !monitoringSections.some((m) => m.id === s.id),
+          )
+          .map((s) => (
+            <button
+              key={s.id}
+              onClick={() => navigate(s.id)}
+              aria-current={section === s.id ? 'page' : undefined}
+              className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium ${section === s.id ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted'}`}
+            >
+              <s.icon className="size-4" />
+              {s.label}
+              {section === s.id && (
+                <span className="ml-auto size-1.5 rounded-full bg-primary" />
+              )}
+            </button>
+          ))}
       </nav>
       <div className="mt-auto rounded-xl border bg-background/60 p-4">
         <ShieldCheck className="mb-2 size-5 text-primary" />
@@ -350,12 +379,12 @@ export function AdminDashboard({
   )
   return (
     <div className="flex min-h-screen bg-background">
-      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r bg-card p-5 lg:flex">
+      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col overflow-y-auto border-r bg-card p-5 lg:flex">
         {nav}
       </aside>
       {mobile && (
         <div className="fixed inset-0 z-50 flex bg-background/70 lg:hidden">
-          <aside className="flex h-full w-72 flex-col border-r bg-card p-5">
+          <aside className="flex h-full w-72 flex-col overflow-y-auto border-r bg-card p-5">
             <Button
               variant="ghost"
               size="icon"
@@ -417,7 +446,11 @@ export function AdminDashboard({
                 size="icon"
                 aria-label="Notifications"
                 aria-expanded={notifications}
-                onClick={() => setNotifications(!notifications)}
+                onClick={() =>
+                  me.role === 'owner'
+                    ? navigate('notifications')
+                    : setNotifications(!notifications)
+                }
               >
                 <Bell className="size-4" />
               </Button>
@@ -485,10 +518,12 @@ export function AdminDashboard({
                 variant="outline"
                 size="sm"
                 onClick={() => setRefresh((v) => v + 1)}
-                disabled={loading}
+                disabled={
+                  loading && !monitoringSections.some((s) => s.id === section)
+                }
               >
                 <RefreshCw
-                  className={`mr-2 size-3.5 ${loading ? 'animate-spin' : ''}`}
+                  className={`mr-2 size-3.5 ${loading && !monitoringSections.some((s) => s.id === section) ? 'animate-spin' : ''}`}
                 />
                 Refresh
               </Button>
@@ -503,361 +538,379 @@ export function AdminDashboard({
               )}
             </div>
           </div>
-          {section !== 'users' && (
-            <div className="flex flex-wrap items-center gap-3">
-              <Select
-                label="Report date range"
-                value={range}
-                onChange={(v) => {
-                  setRange(v)
-                  setPage(1)
-                }}
-                options={[
-                  ['1', 'Today'],
-                  ['7', 'Last 7 days'],
-                  ['30', 'Last 30 days'],
-                  ['90', 'Last 90 days'],
-                  ['custom', 'Custom range'],
-                ]}
+          {monitoringSections.some((s) => s.id === section) ? (
+            me.role === 'owner' ? (
+              <Monitoring
+                key={section}
+                section={section as MonitoringSection}
+                refresh={refresh}
               />
-              {range === 'custom' && (
-                <>
-                  <Input
-                    aria-label="Start date"
-                    className="w-40"
-                    type="date"
-                    value={from}
-                    onChange={(e) => {
-                      setFrom(e.target.value)
-                      setPage(1)
-                    }}
-                  />
-                  <span className="text-xs">to</span>
-                  <Input
-                    aria-label="End date"
-                    className="w-40"
-                    type="date"
-                    value={to}
-                    onChange={(e) => {
-                      setTo(e.target.value)
-                      setPage(1)
-                    }}
-                  />
-                </>
-              )}
-              <span className="text-xs text-muted-foreground">
-                UTC · Metadata only
-              </span>
-            </div>
-          )}
-          {error ? (
-            <div
-              role="alert"
-              className="rounded-xl border border-destructive/30 bg-destructive/5 p-5 text-sm"
-            >
-              {error}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setRefresh((v) => v + 1)}
-              >
-                Retry
-              </Button>
-            </div>
-          ) : loading ? (
-            <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-              {Array.from({ length: 8 }, (_, i) => (
-                <Skeleton key={i} className="h-36 rounded-2xl" />
-              ))}
-            </div>
+            ) : (
+              <p role="alert">Owner access required.</p>
+            )
           ) : (
             <>
-              {(section === 'overview' || section === 'analytics') &&
-                overview && (
-                  <Overview
-                    overview={overview}
-                    section={section}
-                    setEvent={setEvent}
+              {section !== 'users' && (
+                <div className="flex flex-wrap items-center gap-3">
+                  <Select
+                    label="Report date range"
+                    value={range}
+                    onChange={(v) => {
+                      setRange(v)
+                      setPage(1)
+                    }}
+                    options={[
+                      ['1', 'Today'],
+                      ['7', 'Last 7 days'],
+                      ['30', 'Last 30 days'],
+                      ['90', 'Last 90 days'],
+                      ['custom', 'Custom range'],
+                    ]}
                   />
-                )}
-              {['users', 'events', 'audit'].includes(section) && (
-                <Panel
-                  title={current.label}
-                  description={`${num(total)} matching records · 25 per page`}
-                >
-                  <div className="flex flex-wrap gap-3 border-b p-4">
-                    <div className="relative min-w-48 flex-1">
-                      <Search className="absolute top-3 left-3 size-4 text-muted-foreground" />
+                  {range === 'custom' && (
+                    <>
                       <Input
-                        aria-label="Search users"
-                        className="pl-9"
-                        placeholder="Search name, email, or user ID"
-                        value={q}
-                        onChange={(e) => setQ(e.target.value)}
+                        aria-label="Start date"
+                        className="w-40"
+                        type="date"
+                        value={from}
+                        onChange={(e) => {
+                          setFrom(e.target.value)
+                          setPage(1)
+                        }}
                       />
-                    </div>
-                    {section === 'users' ? (
-                      <>
-                        <Select
-                          label="Account filter"
-                          value={filter}
-                          onChange={(v) => {
-                            setFilter(v)
-                            setPage(1)
-                          }}
-                          options={[
-                            'all',
-                            'active',
-                            'suspended',
-                            'unverified',
-                            'recent',
-                            'admin',
-                            'student',
-                          ].map((v) => [
-                            v,
-                            v === 'recent'
-                              ? 'Registered in last 7 days'
-                              : pretty(v),
-                          ])}
-                        />
-                        <Select
-                          label="Sort accounts"
-                          value={sort}
-                          onChange={(v) => {
-                            setSort(v)
-                            setPage(1)
-                          }}
-                          options={[
-                            ['newest', 'Newest registrations'],
-                            ['oldest', 'Oldest registrations'],
-                            ['name', 'Name A–Z'],
-                            ['email', 'Email A–Z'],
-                            ['active', 'Last active'],
-                          ]}
-                        />
-                      </>
-                    ) : (
-                      <>
-                        <Input
-                          aria-label="Exact event type"
-                          className="w-48"
-                          placeholder="Exact type, e.g. note.created"
-                          value={type}
-                          onChange={(e) => {
-                            setType(e.target.value)
-                            setPage(1)
-                          }}
-                        />
-                        {section === 'events' && (
-                          <Select
-                            label="Feature filter"
-                            value={feature}
-                            onChange={(v) => {
-                              setFeature(v)
-                              setPage(1)
-                            }}
-                            options={[
-                              ['', 'All features'],
-                              ...features.map(
-                                (f) => [f, pretty(f)] as [string, string],
-                              ),
-                            ]}
+                      <span className="text-xs">to</span>
+                      <Input
+                        aria-label="End date"
+                        className="w-40"
+                        type="date"
+                        value={to}
+                        onChange={(e) => {
+                          setTo(e.target.value)
+                          setPage(1)
+                        }}
+                      />
+                    </>
+                  )}
+                  <span className="text-xs text-muted-foreground">
+                    UTC · Metadata only
+                  </span>
+                </div>
+              )}
+              {error ? (
+                <div
+                  role="alert"
+                  className="rounded-xl border border-destructive/30 bg-destructive/5 p-5 text-sm"
+                >
+                  {error}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setRefresh((v) => v + 1)}
+                  >
+                    Retry
+                  </Button>
+                </div>
+              ) : loading ? (
+                <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+                  {Array.from({ length: 8 }, (_, i) => (
+                    <Skeleton key={i} className="h-36 rounded-2xl" />
+                  ))}
+                </div>
+              ) : (
+                <>
+                  {(section === 'overview' || section === 'analytics') &&
+                    overview && (
+                      <Overview
+                        overview={overview}
+                        section={section}
+                        setEvent={setEvent}
+                      />
+                    )}
+                  {['users', 'events', 'audit'].includes(section) && (
+                    <Panel
+                      title={current.label}
+                      description={`${num(total)} matching records · 25 per page`}
+                    >
+                      <div className="flex flex-wrap gap-3 border-b p-4">
+                        <div className="relative min-w-48 flex-1">
+                          <Search className="absolute top-3 left-3 size-4 text-muted-foreground" />
+                          <Input
+                            aria-label="Search users"
+                            className="pl-9"
+                            placeholder="Search name, email, or user ID"
+                            value={q}
+                            onChange={(e) => setQ(e.target.value)}
                           />
+                        </div>
+                        {section === 'users' ? (
+                          <>
+                            <Select
+                              label="Account filter"
+                              value={filter}
+                              onChange={(v) => {
+                                setFilter(v)
+                                setPage(1)
+                              }}
+                              options={[
+                                'all',
+                                'active',
+                                'suspended',
+                                'unverified',
+                                'recent',
+                                'admin',
+                                'student',
+                              ].map((v) => [
+                                v,
+                                v === 'recent'
+                                  ? 'Registered in last 7 days'
+                                  : pretty(v),
+                              ])}
+                            />
+                            <Select
+                              label="Sort accounts"
+                              value={sort}
+                              onChange={(v) => {
+                                setSort(v)
+                                setPage(1)
+                              }}
+                              options={[
+                                ['newest', 'Newest registrations'],
+                                ['oldest', 'Oldest registrations'],
+                                ['name', 'Name A–Z'],
+                                ['email', 'Email A–Z'],
+                                ['active', 'Last active'],
+                              ]}
+                            />
+                          </>
+                        ) : (
+                          <>
+                            <Input
+                              aria-label="Exact event type"
+                              className="w-48"
+                              placeholder="Exact type, e.g. note.created"
+                              value={type}
+                              onChange={(e) => {
+                                setType(e.target.value)
+                                setPage(1)
+                              }}
+                            />
+                            {section === 'events' && (
+                              <Select
+                                label="Feature filter"
+                                value={feature}
+                                onChange={(v) => {
+                                  setFeature(v)
+                                  setPage(1)
+                                }}
+                                options={[
+                                  ['', 'All features'],
+                                  ...features.map(
+                                    (f) => [f, pretty(f)] as [string, string],
+                                  ),
+                                ]}
+                              />
+                            )}
+                            <Select
+                              label="Event result"
+                              value={status}
+                              onChange={(v) => {
+                                setStatus(v)
+                                setPage(1)
+                              }}
+                              options={[
+                                ['', 'All results'],
+                                ['success', 'Success'],
+                                ['failure', 'Failure'],
+                                ...(section === 'audit'
+                                  ? [['pending', 'Pending'] as [string, string]]
+                                  : []),
+                              ]}
+                            />
+                            {userFilter && (
+                              <Button
+                                variant="outline"
+                                onClick={() => {
+                                  setUserFilter('')
+                                  void routeNavigate({
+                                    to: '/admin/activity',
+                                    search: { user: undefined },
+                                  })
+                                  setPage(1)
+                                }}
+                              >
+                                Clear selected user
+                              </Button>
+                            )}
+                          </>
                         )}
-                        <Select
-                          label="Event result"
-                          value={status}
-                          onChange={(v) => {
-                            setStatus(v)
-                            setPage(1)
-                          }}
-                          options={[
-                            ['', 'All results'],
-                            ['success', 'Success'],
-                            ['failure', 'Failure'],
-                            ...(section === 'audit'
-                              ? [['pending', 'Pending'] as [string, string]]
-                              : []),
-                          ]}
-                        />
-                        {userFilter && (
+                      </div>
+                      {!rows.length ? (
+                        <Empty text="No records match these filters." />
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="w-full whitespace-nowrap text-left text-xs">
+                            <thead className="bg-muted/30 text-muted-foreground">
+                              <tr>
+                                {(section === 'users'
+                                  ? [
+                                      'Account / User ID',
+                                      'Email',
+                                      'Registered',
+                                      'Last active',
+                                      'Status',
+                                      'Verified',
+                                      'Role',
+                                      'Actions',
+                                    ]
+                                  : [
+                                      'User',
+                                      'Activity',
+                                      'Feature / category',
+                                      'Date & time',
+                                      'Result',
+                                      'Details',
+                                    ]
+                                ).map((h) => (
+                                  <th key={h} className="px-4 py-3 font-medium">
+                                    {h}
+                                  </th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {section === 'users'
+                                ? (rows as AdminUser[]).map((u) => (
+                                    <tr
+                                      key={u.id}
+                                      className="border-t hover:bg-muted/20"
+                                    >
+                                      <td className="px-4 py-4">
+                                        <button
+                                          onClick={() => void loadUser(u)}
+                                          className="text-left font-semibold text-primary hover:underline"
+                                        >
+                                          {u.name || 'Unnamed account'}
+                                        </button>
+                                        <p
+                                          className="mt-1 max-w-48 truncate font-mono text-[10px] text-muted-foreground"
+                                          title={u.id}
+                                        >
+                                          {u.id}
+                                        </p>
+                                      </td>
+                                      <td className="px-4 py-4">
+                                        {u.email || '—'}
+                                      </td>
+                                      <td className="px-4 py-4 text-muted-foreground">
+                                        {date(u.registered_at)}
+                                      </td>
+                                      <td className="px-4 py-4 text-muted-foreground">
+                                        {date(u.last_active)}
+                                      </td>
+                                      <td className="px-4 py-4">
+                                        <Badge value={u.status} />
+                                      </td>
+                                      <td className="px-4 py-4">
+                                        {u.verified_at
+                                          ? 'Verified'
+                                          : 'Unverified'}
+                                      </td>
+                                      <td className="px-4 py-4">
+                                        <Badge value={u.role} />
+                                      </td>
+                                      <td className="px-4 py-4">
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={() => void loadUser(u)}
+                                        >
+                                          View account
+                                        </Button>
+                                      </td>
+                                    </tr>
+                                  ))
+                                : (rows as AdminEvent[]).map((e) => (
+                                    <tr
+                                      key={e.id}
+                                      className="border-t hover:bg-muted/20"
+                                    >
+                                      <td
+                                        className="max-w-52 truncate px-4 py-4"
+                                        title={e.user_id || e.admin_id}
+                                      >
+                                        {e.name ||
+                                          e.email ||
+                                          e.user_id ||
+                                          e.admin_id ||
+                                          'Unattributed account'}
+                                      </td>
+                                      <td className="px-4 py-4 font-medium">
+                                        {pretty(e.type || e.action || '')}
+                                      </td>
+                                      <td className="px-4 py-4 text-muted-foreground">
+                                        {pretty(e.feature || 'Administration')}
+                                      </td>
+                                      <td className="px-4 py-4 text-muted-foreground">
+                                        {date(e.created_at)}
+                                      </td>
+                                      <td className="px-4 py-4">
+                                        <Badge
+                                          value={e.status || e.result || ''}
+                                        />
+                                      </td>
+                                      <td className="px-4 py-4">
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          onClick={() => setEvent(e)}
+                                        >
+                                          Details
+                                        </Button>
+                                      </td>
+                                    </tr>
+                                  ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between border-t p-4 text-xs text-muted-foreground">
+                        <span>
+                          Page {page} of {Math.max(1, Math.ceil(total / 25))}
+                        </span>
+                        <div className="flex gap-2">
                           <Button
                             variant="outline"
-                            onClick={() => {
-                              setUserFilter('')
-                              void routeNavigate({
-                                to: '/admin/activity',
-                                search: { user: undefined },
-                              })
-                              setPage(1)
-                            }}
+                            size="sm"
+                            disabled={page <= 1}
+                            onClick={() => setPage((p) => p - 1)}
                           >
-                            Clear selected user
+                            <ChevronLeft className="mr-1 size-4" />
+                            Previous
                           </Button>
-                        )}
-                      </>
-                    )}
-                  </div>
-                  {!rows.length ? (
-                    <Empty text="No records match these filters." />
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <table className="w-full whitespace-nowrap text-left text-xs">
-                        <thead className="bg-muted/30 text-muted-foreground">
-                          <tr>
-                            {(section === 'users'
-                              ? [
-                                  'Account / User ID',
-                                  'Email',
-                                  'Registered',
-                                  'Last active',
-                                  'Status',
-                                  'Verified',
-                                  'Role',
-                                  'Actions',
-                                ]
-                              : [
-                                  'User',
-                                  'Activity',
-                                  'Feature / category',
-                                  'Date & time',
-                                  'Result',
-                                  'Details',
-                                ]
-                            ).map((h) => (
-                              <th key={h} className="px-4 py-3 font-medium">
-                                {h}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {section === 'users'
-                            ? (rows as AdminUser[]).map((u) => (
-                                <tr
-                                  key={u.id}
-                                  className="border-t hover:bg-muted/20"
-                                >
-                                  <td className="px-4 py-4">
-                                    <button
-                                      onClick={() => void loadUser(u)}
-                                      className="text-left font-semibold text-primary hover:underline"
-                                    >
-                                      {u.name || 'Unnamed account'}
-                                    </button>
-                                    <p
-                                      className="mt-1 max-w-48 truncate font-mono text-[10px] text-muted-foreground"
-                                      title={u.id}
-                                    >
-                                      {u.id}
-                                    </p>
-                                  </td>
-                                  <td className="px-4 py-4">
-                                    {u.email || '—'}
-                                  </td>
-                                  <td className="px-4 py-4 text-muted-foreground">
-                                    {date(u.registered_at)}
-                                  </td>
-                                  <td className="px-4 py-4 text-muted-foreground">
-                                    {date(u.last_active)}
-                                  </td>
-                                  <td className="px-4 py-4">
-                                    <Badge value={u.status} />
-                                  </td>
-                                  <td className="px-4 py-4">
-                                    {u.verified_at ? 'Verified' : 'Unverified'}
-                                  </td>
-                                  <td className="px-4 py-4">
-                                    <Badge value={u.role} />
-                                  </td>
-                                  <td className="px-4 py-4">
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => void loadUser(u)}
-                                    >
-                                      View account
-                                    </Button>
-                                  </td>
-                                </tr>
-                              ))
-                            : (rows as AdminEvent[]).map((e) => (
-                                <tr
-                                  key={e.id}
-                                  className="border-t hover:bg-muted/20"
-                                >
-                                  <td
-                                    className="max-w-52 truncate px-4 py-4"
-                                    title={e.user_id || e.admin_id}
-                                  >
-                                    {e.name ||
-                                      e.email ||
-                                      e.user_id ||
-                                      e.admin_id ||
-                                      'Unattributed account'}
-                                  </td>
-                                  <td className="px-4 py-4 font-medium">
-                                    {pretty(e.type || e.action || '')}
-                                  </td>
-                                  <td className="px-4 py-4 text-muted-foreground">
-                                    {pretty(e.feature || 'Administration')}
-                                  </td>
-                                  <td className="px-4 py-4 text-muted-foreground">
-                                    {date(e.created_at)}
-                                  </td>
-                                  <td className="px-4 py-4">
-                                    <Badge value={e.status || e.result || ''} />
-                                  </td>
-                                  <td className="px-4 py-4">
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={() => setEvent(e)}
-                                    >
-                                      Details
-                                    </Button>
-                                  </td>
-                                </tr>
-                              ))}
-                        </tbody>
-                      </table>
-                    </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={page * 25 >= total}
+                            onClick={() => setPage((p) => p + 1)}
+                          >
+                            Next
+                            <ChevronRight className="ml-1 size-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </Panel>
                   )}
-                  <div className="flex items-center justify-between border-t p-4 text-xs text-muted-foreground">
-                    <span>
-                      Page {page} of {Math.max(1, Math.ceil(total / 25))}
-                    </span>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={page <= 1}
-                        onClick={() => setPage((p) => p - 1)}
-                      >
-                        <ChevronLeft className="mr-1 size-4" />
-                        Previous
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={page * 25 >= total}
-                        onClick={() => setPage((p) => p + 1)}
-                      >
-                        Next
-                        <ChevronRight className="ml-1 size-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </Panel>
+                </>
               )}
+              <footer className="flex flex-wrap justify-between gap-2 border-t pt-5 text-[11px] text-muted-foreground">
+                <span>
+                  StudySphere administration · Access verified on the server
+                </span>
+                <span>Activity: 90 days · Audit: 365 days</span>
+              </footer>
             </>
           )}
-          <footer className="flex flex-wrap justify-between gap-2 border-t pt-5 text-[11px] text-muted-foreground">
-            <span>
-              StudySphere administration · Access verified on the server
-            </span>
-            <span>Activity: 90 days · Audit: 365 days</span>
-          </footer>
         </main>
       </div>
       <Dialog

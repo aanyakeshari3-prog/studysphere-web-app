@@ -1,3 +1,4 @@
+import { measure } from '../lib/monitoring'
 import { protectedHandler } from '../lib/protected-handler'
 import { recordEvent } from '../lib/admin-core'
 import { getUser } from '@netlify/identity'
@@ -11,6 +12,8 @@ export default protectedHandler(async (req: Request) => {
     req.headers.get('origin') !== new URL(req.url).origin
   )
     return new Response(null, { status: 403 })
+  const started = performance.now()
+  let feature = 'request'
   try {
     const { action, content, question } = await req.json()
     const actions: Record<string, string> = {
@@ -55,6 +58,7 @@ export default protectedHandler(async (req: Request) => {
         { error: 'Add content before using this action.' },
         { status: 400 },
       )
+    feature = action
     await recordEvent(user.id, 'ai.request.initiated', 'ai')
     const response = await new OpenAI({
       timeout: 45000,
@@ -81,6 +85,18 @@ export default protectedHandler(async (req: Request) => {
         },
       ],
     })
+    await measure({
+      userId: user.id,
+      category: 'ai',
+      feature,
+      provider: 'openai',
+      model: 'gpt-4.1-mini',
+      status: 'success',
+      durationMs: performance.now() - started,
+      inputTokens: response.usage?.prompt_tokens,
+      outputTokens: response.usage?.completion_tokens,
+      cachedTokens: response.usage?.prompt_tokens_details?.cached_tokens,
+    })
     await recordEvent(user.id, 'ai.request.completed', 'ai')
     if (action === 'SearchTerms')
       await recordEvent(user.id, 'search.performed', 'search')
@@ -94,6 +110,28 @@ export default protectedHandler(async (req: Request) => {
       () => {},
     )
     const limited = error instanceof OpenAI.APIError && error.status === 429
+    await measure({
+      userId: user.id,
+      category: 'ai',
+      feature,
+      provider: 'openai',
+      model: 'gpt-4.1-mini',
+      status: 'failure',
+      httpStatus: error instanceof OpenAI.APIError ? error.status : 503,
+      code: limited
+        ? 'rate_limited'
+        : error instanceof OpenAI.APIError &&
+            [
+              'insufficient_quota',
+              'invalid_api_key',
+              'model_not_found',
+              'context_length_exceeded',
+              'server_error',
+            ].includes(error.code || '')
+          ? error.code!
+          : 'provider_unavailable',
+      durationMs: performance.now() - started,
+    })
     return Response.json(
       {
         error: limited

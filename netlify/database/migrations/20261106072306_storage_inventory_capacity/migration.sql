@@ -1,0 +1,1 @@
+ALTER TABLE "monitor_events" ALTER COLUMN "bytes" SET DATA TYPE bigint USING "bytes"::bigint;
