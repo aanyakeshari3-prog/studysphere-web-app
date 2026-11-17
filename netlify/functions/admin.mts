@@ -314,7 +314,11 @@ const handler = async (req: Request) => {
         'SELECT role,status FROM admin_accounts WHERE id=$1 FOR UPDATE',
         [actor.id],
       )
-      const currentRole = ownerRole(actor.id, fresh.rows[0]?.role || 'student')
+      // Owner status comes from server configuration and cannot be revoked in the database.
+      const currentRole =
+        actor.role === 'owner'
+          ? 'owner'
+          : ownerRole(actor.id, fresh.rows[0]?.role || 'student')
       if (fresh.rows[0] && fresh.rows[0].status !== 'active')
         throw new HttpError(403, 'Account unavailable.')
       const target = await client.query(
