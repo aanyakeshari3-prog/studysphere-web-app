@@ -8,6 +8,8 @@ import {
   handleAuthCallback,
   updateUser,
   onAuthChange,
+  oauthLogin,
+  getSettings,
 } from '@netlify/identity'
 import { Logo } from '@/components/logo'
 import { Button } from '@/components/ui/button'
@@ -22,6 +24,13 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const [password, setPassword] = useState('')
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
+  const [googleEnabled, setGoogleEnabled] = useState(false)
+  useEffect(() => {
+    // Only offer Google when it is enabled as an external provider in Identity.
+    getSettings()
+      .then((settings) => setGoogleEnabled(Boolean(settings.providers?.google)))
+      .catch(() => setGoogleEnabled(false))
+  }, [])
   useEffect(() => {
     const off = onAuthChange((_event, user) => setUserId(user?.id ?? ''))
     void (async () => {
@@ -32,7 +41,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         setUserId(user?.id ?? '')
       } catch {
         setMessage(
-          'The sign-in link is invalid or expired. Request a new link.',
+          'Sign-in could not be completed. The link may be invalid or expired, or the sign-in was cancelled. Please try again.',
         )
       } finally {
         setReady(true)
@@ -117,6 +126,38 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           analytics. Activity is retained for 90 days and admin audit records
           for 365 days. Private notes, files, and AI conversations are excluded.
         </p>
+        {googleEnabled && (mode === 'login' || mode === 'signup') && (
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full gap-2"
+              disabled={busy}
+              onClick={() => {
+                setBusy(true)
+                setMessage('')
+                try {
+                  oauthLogin('google')
+                } catch (error) {
+                  setBusy(false)
+                  setMessage(
+                    error instanceof Error
+                      ? error.message
+                      : 'Google sign-in is unavailable.',
+                  )
+                }
+              }}
+            >
+              <GoogleIcon />
+              Continue with Google
+            </Button>
+            <div className="my-5 flex items-center gap-3 text-xs text-muted-foreground">
+              <span className="h-px flex-1 bg-border" />
+              or use email
+              <span className="h-px flex-1 bg-border" />
+            </div>
+          </>
+        )}
         <form className="space-y-4" onSubmit={submit}>
           {mode !== 'reset' && (
             <label className="block text-sm">
@@ -181,5 +222,28 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         </div>
       </div>
     </main>
+  )
+}
+
+function GoogleIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="size-4">
+      <path
+        fill="#4285F4"
+        d="M23.52 12.27c0-.85-.08-1.67-.22-2.45H12v4.64h6.46a5.52 5.52 0 0 1-2.4 3.62v3h3.88c2.27-2.09 3.58-5.17 3.58-8.81Z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 24c3.24 0 5.96-1.07 7.94-2.91l-3.88-3.01c-1.07.72-2.45 1.15-4.06 1.15-3.12 0-5.77-2.11-6.71-4.95H1.28v3.11A12 12 0 0 0 12 24Z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.29 14.28A7.2 7.2 0 0 1 4.91 12c0-.79.14-1.56.38-2.28V6.61H1.28a12 12 0 0 0 0 10.78l4.01-3.11Z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 4.77c1.76 0 3.34.61 4.59 1.8l3.44-3.44C17.95 1.19 15.24 0 12 0A12 12 0 0 0 1.28 6.61l4.01 3.11C6.23 6.88 8.88 4.77 12 4.77Z"
+      />
+    </svg>
   )
 }
