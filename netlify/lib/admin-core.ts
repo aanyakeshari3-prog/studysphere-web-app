@@ -1,8 +1,24 @@
 import { getDatabase } from '@netlify/database'
-import type { User } from '@netlify/identity'
+import { admin, type User } from '@netlify/identity'
 
 export const pool = () => getDatabase().pool
 export const ownerId = () => process.env.STUDYSPHERE_OWNER_USER_ID?.trim() || ''
+// Optional fallback: the account whose email matches STUDYSPHERE_OWNER_EMAIL is the Owner,
+// but only after the provider confirms (server-side) that the email is verified.
+export const ownerEmail = () =>
+  process.env.STUDYSPHERE_OWNER_EMAIL?.trim().toLowerCase() || ''
+const isOwnerEmail = (email?: string | null) =>
+  Boolean(ownerEmail()) && (email || '').trim().toLowerCase() === ownerEmail()
+async function hasVerifiedOwnerEmail(user: Pick<User, 'id' | 'email'>) {
+  if (!isOwnerEmail(user.email)) return false
+  try {
+    // Re-read the account from Identity instead of trusting session claims or metadata.
+    const fresh = await admin.getUser(user.id)
+    return Boolean(fresh?.confirmedAt) && isOwnerEmail(fresh?.email)
+  } catch {
+    return false
+  }
+}
 export class HttpError extends Error {
   constructor(
     public status: number,
@@ -20,10 +36,15 @@ export function ownerRole(id: string, role: string) {
 }
 export function canManage(
   actor: { id: string; role: string },
-  target: { id: string; role: string },
+  target: { id: string; role: string; email?: string | null },
   action: string,
 ) {
-  if (target.id === ownerId() || actor.id === target.id) return false
+  if (
+    target.id === ownerId() ||
+    isOwnerEmail(target.email) ||
+    actor.id === target.id
+  )
+    return false
   if (actor.role === 'owner') return true
   return (
     actor.role === 'admin' &&
@@ -99,7 +120,9 @@ export async function syncAccount(
     ],
   )
 }
-export async function requireActive(user: Pick<User, 'id' | 'roles'>) {
+export async function requireActive(
+  user: Pick<User, 'id' | 'roles' | 'email'>,
+) {
   // The database status is checked on every API call, including sessions issued before suspension.
   const result = await pool().query(
     'SELECT id,role,status FROM admin_accounts WHERE id=$1',
@@ -108,7 +131,10 @@ export async function requireActive(user: Pick<User, 'id' | 'roles'>) {
   const account = result.rows[0]
   if (account && account.status !== 'active')
     throw new HttpError(403, 'This account is suspended or pending deletion.')
-  return { id: user.id, role: ownerRole(user.id, account?.role || 'student') }
+  const role = ownerRole(user.id, account?.role || 'student')
+  if (role !== 'owner' && (await hasVerifiedOwnerEmail(user)))
+    return { id: user.id, role: 'owner' }
+  return { id: user.id, role }
 }
 export async function rateLimit(id: string, mutation = false) {
   const bucket = Math.floor(Date.now() / 60000)
